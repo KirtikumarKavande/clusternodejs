@@ -6,42 +6,48 @@ const totalCPUs = os.cpus().length;
 
 const port = 3000;
 
+let myNum = 100000000
+let totalSum = 0
+let completedWorkers = 0
+
 if (cluster.isPrimary) {
-  console.log(`Number of CPUs is ${totalCPUs}`);
-  console.log(`Primary ${process.pid} is running`);
+    let chuckSize = myNum / totalCPUs
+    let startTime = Date.now()
 
-  // Fork workers.
-  for (let i = 0; i < totalCPUs; i++) {
-    cluster.fork();
-  }
-
-  cluster.on("exit", (worker, code, signal) => {
-    console.log(`worker ${worker.process.pid} died`);
-    console.log("Let's fork another worker!");
-    cluster.fork();
-  });
-} else {
-  const app = express();
-  console.log(`Worker ${process.pid} started`);
-
-  app.get("/", (req, res) => {
-    res.send("Hello World!");
-  });
-
-  app.get("/api/:n", function (req, res) {
-    let n = parseInt(req.params.n);
-    let count = 0;
-
-    if (n > 5000000000) n = 5000000000;
-
-    for (let i = 0; i <= n; i++) {
-      count += i;
+    for (let i = 0; i < totalCPUs; i++) {
+        let worker = cluster.fork();
+        let startPoint = chuckSize * i
+        let endPoint = i === totalCPUs - 1 ? myNum : startPoint + chuckSize
+        
+        worker.on("message", (msg) => {
+            if (msg.ready) {
+                // Worker is ready, send the work data
+                worker.send({ startPoint, endPoint })
+                return
+            }
+            
+            totalSum += msg.partialSum
+            completedWorkers++
+            if (completedWorkers === totalCPUs) {
+                let endTime = Date.now()
+                console.log("Time taken", endTime - startTime)
+                console.log("All workers completed", totalSum)
+                process.exit()
+            }
+        })
     }
 
-    res.send(`Final count is ${count} ${process.pid}`);
-  });
-
-  app.listen(port, () => {
-    console.log(`App listening on port ${port}`);
-  });
+} else {
+    // Set up message listener first
+    process.on('message', (msg) => {
+        let { startPoint, endPoint } = msg
+        let sum = 0
+        for (let i = startPoint; i < endPoint; i++) {
+            sum += i
+        }
+        process.send({ partialSum: sum })
+    })
+    
+    // Signal that worker is ready to receive messages
+    process.send({ ready: true })
 }
