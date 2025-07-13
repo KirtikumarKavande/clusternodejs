@@ -6,7 +6,16 @@ const totalCPUs = os.cpus().length;
 
 const port = 3000;
 
-let myNum = 100000000
+
+const app = express();
+
+app.get("/health", (req, res) => {
+    res.send("Hello World!");
+});
+
+
+app.get('/sum/:end',(req,res)=>{
+let myNum = req.params.end
 let totalSum = 0
 let completedWorkers = 0
 
@@ -51,3 +60,10 @@ if (cluster.isPrimary) {
     // Signal that worker is ready to receive messages
     process.send({ ready: true })
 }
+
+})
+
+
+app.listen(3000, () => {
+    console.log(`Server is running on port ${port}`);
+});
