@@ -9,6 +9,11 @@ const port = 3000;
 
 const app = express();
 
+
+app.get("/ip", (req, res) => {
+    res.send(req.ip);
+    
+})
 app.get("/health", (req, res) => {
     res.send("Hello World!");
 });
